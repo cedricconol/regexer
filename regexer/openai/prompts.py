@@ -1,27 +1,9 @@
-import re
-import csv
 from io import StringIO
 
-import streamlit as st
-import pandas as pd
-
-from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.prompts import MessagesPlaceholder
 
-def create_chain(prompt, version="gpt-4-0125-preview", temperature=0.0):
-    model = ChatOpenAI(
-        model=version,
-        temperature=temperature,
-        api_key=st.secrets["OPENAI_API_KEY"]
-    )
-
-    chain = prompt | model
-
-    return chain
-
-def prompt_intent():
+def intent():
     delimiter = "###"
     system_prompt = f"""
         You are an AI assistant. Your task is to classify the string provided in <input> as valid or invalid.
@@ -46,7 +28,7 @@ def prompt_intent():
     
     return prompt
 
-def prompt_create_regex():
+def regex():
     delimiter = "####"
     system_prompt = f"""
         You are an AI Assistant expert in formulating regex patterns using Python Regex.
@@ -70,55 +52,7 @@ def prompt_create_regex():
     
     return prompt
 
-def extract_search_string(base_string, pattern):
-    
-    search_string = re.search(pattern, base_string)
-    
-    if search_string:
-        return search_string.group(0)
-    return None
-
-def tester(csv_string, pattern, output='score', verbose=False):
-    csv_sio = StringIO(csv_string)
-    df = pd.read_csv(csv_sio, sep=",", header=0)
-
-    score = 0
-    total = 0
-    result = []
-
-    for _, row in df.iterrows():
-        base_string = row['base_string']
-        search_string = row['search_string']
-        output_string = extract_search_string(base_string, pattern)
-        result.append(output_string)
-
-        total+=1
-
-        if output_string == search_string:
-            score+=1
-
-        if verbose:
-            print('Example number: ', total)
-            print('base_string: ', base_string)
-            print('output: ', output_string)
-            print('expected: ', search_string)
-
-            if output_string == search_string:
-                print('result: ', 'correct')
-                print('---')
-            else:
-                print('result: ', 'incorrect')
-                print('---')
-    
-    if output=='score':
-        return score/total
-    
-    if output=='dataframe':
-        df['result'] = result
-        df['is_correct'] = df.apply(lambda row: row.search_string==row.result, axis=1)
-        return df
-
-def prompt_retry(df):
+def retry(df):
     df = df[(df['is_correct']==False)]
     df=df[['base_string', 'search_string', 'result']]
     s = StringIO()
@@ -143,8 +77,3 @@ def prompt_retry(df):
     {failed}
 """
     return prompt
-
-sample_csv="""base_string,search_string
-"https://docs.google.com/spreadsheets/d/aabc-d12/edit#gid=0","aabc-d12"
-"https://docs.google.com/spreadsheets/d/33_eed/33_eed","33_eed"
-"""

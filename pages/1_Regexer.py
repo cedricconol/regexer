@@ -1,5 +1,6 @@
 import streamlit as st
-from functions import create_chain, prompt_create_regex, tester, prompt_retry, prompt_intent
+from regexer import helper
+from regexer.openai import chains, prompts
 from langchain_core.messages import HumanMessage, AIMessage
 
 st.title("REGEXER")
@@ -9,11 +10,19 @@ input_csv = st.text_area("Input CSV", default_input)
 max_retries = st.number_input("Maximum retries", 3)
 validation_output = 'N'
 
-# Input validation
+# config
+if 'api_key' not in st.session_state:
+    st.session_state['api_key'] = 'none'
 
-if input_csv != default_input:
-    prompt_validation = prompt_intent()
-    chain_validation = create_chain(prompt_validation)
+api_key = st.session_state.api_key
+
+if api_key == 'none':
+    st.write("Input API Key in Home Page.")
+
+# Input validation
+if input_csv != default_input and st.session_state.api_key != 'none':
+    prompt_validation = prompts.intent()
+    chain_validation = chains.create(prompt_validation, api_key)
     chat_history_validation = [HumanMessage(content=input_csv)]
 
     validation_output = chain_validation.invoke(
@@ -25,8 +34,8 @@ if input_csv != default_input:
         st.write(validation_output)
 
 # Regexer
-prompt = prompt_create_regex()
-chain = create_chain(prompt)
+prompt = prompts.regex()
+chain = chains.create(prompt, api_key)
 
 if validation_output=='Y':
     pattern = chain.invoke(
@@ -44,17 +53,17 @@ if validation_output=='Y':
     i=0
     while i < max_retries:
         i+=1
-        score = tester(input_csv, patterns[-1])
+        score = helper.tester(input_csv, patterns[-1])
 
         if score < 1:
-            df = tester(input_csv, patterns[-1], 'dataframe', True)
+            df = helper.tester(input_csv, patterns[-1], 'dataframe', True)
 
-            prompt_retried = prompt_retry(df)
+            prompt_retried = prompts.retry(df)
 
             chat_history.append(HumanMessage(content=prompt_retried))
 
             pattern_new = chain.invoke({
-            "input":prompt_retry,
+            "input":prompt_retried,
             "chat_history":chat_history
             }).content
 
